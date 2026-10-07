@@ -194,7 +194,6 @@ class MainScene extends Phaser.Scene {
     createMobileControllerRoom() {
         const modal = document.getElementById('qr-modal');
         const closeButton = document.getElementById('close-qr-btn');
-        this.qrContainer = document.getElementById('qrcode-box');
         modal.style.display = 'block';
 
         let baseUrl = window.location.href.split('?')[0].split('#')[0];
@@ -206,17 +205,17 @@ class MainScene extends Phaser.Scene {
         }
         const controllerUrl = baseUrl + 'controller.html?room=' + this.roomId;
 
-        if (this.qrContainer) {
-            this.qrContainer.innerHTML = '';
-            try {
-                new QRCode(this.qrContainer, {
-                    text: controllerUrl,
-                    width: 140,
-                    height: 140
-                });
-            } catch (error) {
-                this.qrContainer.innerHTML = `<img src="https://quickchart.io/qr?text=${encodeURIComponent(controllerUrl)}&size=140" width="140" height="140" alt="Código QR del controlador">`;
-            }
+        const roomDisplay = document.getElementById('room-code-display');
+        if (roomDisplay) roomDisplay.innerText = 'SALA: ' + this.roomId;
+
+        const urlDisplay = document.getElementById('controller-url-text');
+        if (urlDisplay) urlDisplay.innerText = 'controller.html?room=' + this.roomId;
+
+        const canvas = document.getElementById('qr-canvas');
+        if (canvas && typeof QRCode !== 'undefined') {
+            QRCode.toCanvas(canvas, controllerUrl, { width: 160, margin: 1 }, (error) => {
+                if (error) console.error(error);
+            });
         }
         closeButton.onclick = () => { modal.style.display = 'none'; };
 
