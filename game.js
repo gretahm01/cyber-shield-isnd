@@ -108,7 +108,8 @@ class MainScene extends Phaser.Scene {
         this.score = 0;
         this.energy = 100;
         this.level = 1;
-        this.roomId = Math.floor(1000 + Math.random() * 9000);
+        const roomId = Math.floor(1000 + Math.random() * 9000);
+        this.roomId = roomId;
         this.mobileInputs = { left: false, right: false, shoot: false };
         this.createMobileControllerRoom();
         this.connectMobileController();
@@ -193,13 +194,30 @@ class MainScene extends Phaser.Scene {
     createMobileControllerRoom() {
         const modal = document.getElementById('qr-modal');
         const closeButton = document.getElementById('close-qr-btn');
-        this.qrContainer = document.getElementById('qrcode-container');
+        this.qrContainer = document.getElementById('qrcode-box');
         modal.style.display = 'block';
 
-        const controllerUrl = window.location.href.replace('index.html', '').split('?')[0]
-            + 'controller.html?room=' + this.roomId;
-        this.qrContainer.innerHTML = '';
-        new QRCode(this.qrContainer, { text: controllerUrl, width: 140, height: 140 });
+        let baseUrl = window.location.href.split('?')[0].split('#')[0];
+        if (baseUrl.endsWith('index.html')) {
+            baseUrl = baseUrl.replace('index.html', '');
+        }
+        if (!baseUrl.endsWith('/')) {
+            baseUrl += '/';
+        }
+        const controllerUrl = baseUrl + 'controller.html?room=' + this.roomId;
+
+        if (this.qrContainer) {
+            this.qrContainer.innerHTML = '';
+            try {
+                new QRCode(this.qrContainer, {
+                    text: controllerUrl,
+                    width: 140,
+                    height: 140
+                });
+            } catch (error) {
+                this.qrContainer.innerHTML = `<img src="https://quickchart.io/qr?text=${encodeURIComponent(controllerUrl)}&size=140" width="140" height="140" alt="Código QR del controlador">`;
+            }
+        }
         closeButton.onclick = () => { modal.style.display = 'none'; };
 
         this.add.text(

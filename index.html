@@ -30,14 +30,13 @@
   <div id="qr-modal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: rgba(0, 15, 30, 0.95); border: 2px solid #00ff88; padding: 20px; border-radius: 12px; text-align: center; font-family: monospace; color: #ffffff; box-shadow: 0 0 20px #00ff88;">
     <h3 style="margin-top:0; color:#00ff88;">CONTROLLER QR</h3>
     <p style="font-size: 12px;">Escanea con tu celular (Datos o Wi-Fi)</p>
-    <div id="qrcode-container" style="background: white; padding: 8px; display: inline-block; border-radius: 8px;">
-      <img id="qr-image" src="" alt="Generando QR..." style="width: 150px; height: 150px; display: block; border: none;" />
-    </div>
+    <div id="qrcode-box" style="width: 140px; height: 140px; margin: 10px auto; background: #ffffff; padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: center;"></div>
     <br><br>
     <button id="close-qr-btn" style="background: #ff0055; color: white; border: none; padding: 8px 16px; cursor: pointer; font-weight: bold; border-radius: 4px;">JUGAR CON TECLADO</button>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
