@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cyber Shield ISND</title>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
@@ -28,18 +28,47 @@
 </head>
 <body>
   <main id="game-container" aria-label="Cyber Shield ISND"></main>
-  <div id="qr-modal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: rgba(0, 15, 30, 0.95); border: 2px solid #00ff88; padding: 20px; border-radius: 12px; text-align: center; font-family: monospace; color: #ffffff; box-shadow: 0 0 20px #00ff88; min-width: 260px;">
-    <h3 style="margin-top:0; color:#00ff88;">CONTROLLER MÓVIL</h3>
-    <p style="font-size: 11px; margin-bottom: 8px;">Escanea con tu celular (Datos 4G/5G o Wi-Fi):</p>
-    <div style="background: white; padding: 10px; display: inline-block; border-radius: 8px; margin: 5px 0;">
-      <canvas id="qr-canvas" width="160" height="160" style="display: block;"></canvas>
+  <div id="qr-modal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: rgba(0, 15, 30, 0.95); border: 2px solid #00ff88; padding: 20px; border-radius: 12px; text-align: center; font-family: monospace; color: #ffffff; box-shadow: 0 0 20px #00ff88; width: 280px;">
+    <h3 style="margin-top:0; color:#00ff88; font-size: 16px;">CONTROLLER MÓVIL</h3>
+    <p style="font-size: 11px; margin-bottom: 8px; color: #ccc;">Escanea con tu celular (Datos o Wi-Fi):</p>
+    <div id="qrcode-target" style="background: white; padding: 8px; display: inline-block; border-radius: 8px; margin: 5px 0; min-width: 140px; min-height: 140px;">
+      <canvas id="qr-canvas" width="140" height="140"></canvas>
     </div>
-    <div id="room-code-display" style="font-size: 13px; color: #00ffff; font-weight: bold; margin: 8px 0;">SALA: ----</div>
-    <p style="font-size: 10px; color: #aaa; margin-bottom: 12px;">URL: <span id="controller-url-text" style="color:#fff;">...</span></p>
+    <div id="room-code-txt" style="font-size: 16px; color: #00ffff; font-weight: bold; margin: 8px 0;">SALA: Cargando...</div>
+    <div id="url-code-txt" style="font-size: 10px; color: #aaa; margin-bottom: 12px; word-break: break-all;"></div>
     <button id="close-qr-btn" style="background: #ff0055; color: white; border: none; padding: 8px 16px; cursor: pointer; font-weight: bold; border-radius: 4px; width: 100%;">JUGAR CON TECLADO</button>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="game.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      window.GAME_ROOM_ID ??= Math.floor(1000 + Math.random() * 9000);
+
+      let baseUrl = window.location.href.split('?')[0].split('#')[0];
+      if (baseUrl.endsWith('index.html')) baseUrl = baseUrl.replace('index.html', '');
+      if (!baseUrl.endsWith('/')) baseUrl += '/';
+      const controllerUrl = baseUrl + 'controller.html?room=' + window.GAME_ROOM_ID;
+
+      const roomTxt = document.getElementById('room-code-txt');
+      if (roomTxt) roomTxt.innerText = 'SALA: ' + window.GAME_ROOM_ID;
+
+      const urlTxt = document.getElementById('url-code-txt');
+      if (urlTxt) urlTxt.innerText = 'URL: controller.html?room=' + window.GAME_ROOM_ID;
+
+      const target = document.getElementById('qrcode-target');
+      if (target && typeof QRCode !== 'undefined') {
+        target.innerHTML = '';
+        new QRCode(target, { text: controllerUrl, width: 140, height: 140 });
+      }
+
+      const closeBtn = document.getElementById('close-qr-btn');
+      if (closeBtn) {
+        closeBtn.onclick = function () {
+          document.getElementById('qr-modal').style.display = 'none';
+        };
+      }
+    });
+  </script>
 </body>
 </html>

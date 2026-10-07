@@ -108,7 +108,7 @@ class MainScene extends Phaser.Scene {
         this.score = 0;
         this.energy = 100;
         this.level = 1;
-        const roomId = Math.floor(1000 + Math.random() * 9000);
+        const roomId = window.GAME_ROOM_ID || (window.GAME_ROOM_ID = Math.floor(1000 + Math.random() * 9000));
         this.roomId = roomId;
         this.mobileInputs = { left: false, right: false, shoot: false };
         this.createMobileControllerRoom();
@@ -195,28 +195,6 @@ class MainScene extends Phaser.Scene {
         const modal = document.getElementById('qr-modal');
         const closeButton = document.getElementById('close-qr-btn');
         modal.style.display = 'block';
-
-        let baseUrl = window.location.href.split('?')[0].split('#')[0];
-        if (baseUrl.endsWith('index.html')) {
-            baseUrl = baseUrl.replace('index.html', '');
-        }
-        if (!baseUrl.endsWith('/')) {
-            baseUrl += '/';
-        }
-        const controllerUrl = baseUrl + 'controller.html?room=' + this.roomId;
-
-        const roomDisplay = document.getElementById('room-code-display');
-        if (roomDisplay) roomDisplay.innerText = 'SALA: ' + this.roomId;
-
-        const urlDisplay = document.getElementById('controller-url-text');
-        if (urlDisplay) urlDisplay.innerText = 'controller.html?room=' + this.roomId;
-
-        const canvas = document.getElementById('qr-canvas');
-        if (canvas && typeof QRCode !== 'undefined') {
-            QRCode.toCanvas(canvas, controllerUrl, { width: 160, margin: 1 }, (error) => {
-                if (error) console.error(error);
-            });
-        }
         closeButton.onclick = () => { modal.style.display = 'none'; };
 
         this.add.text(
