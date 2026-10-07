@@ -191,20 +191,16 @@ class MainScene extends Phaser.Scene {
     }
 
     createMobileControllerRoom() {
-        const host = document.getElementById('game-container');
-        host.style.position = 'relative';
-
-        this.qrContainer = document.createElement('div');
-        this.qrContainer.id = 'qrcode-container';
-        Object.assign(this.qrContainer.style, {
-            position: 'absolute', right: '12px', top: '12px', padding: '8px',
-            background: '#ffffff', border: '2px solid #00dcf0', zIndex: '5'
-        });
-        host.appendChild(this.qrContainer);
+        const modal = document.getElementById('qr-modal');
+        const closeButton = document.getElementById('close-qr-btn');
+        this.qrContainer = document.getElementById('qrcode-container');
+        modal.style.display = 'block';
 
         const controllerUrl = window.location.href.replace('index.html', '').split('?')[0]
             + 'controller.html?room=' + this.roomId;
-        new QRCode(this.qrContainer, { text: controllerUrl, width: 112, height: 112 });
+        this.qrContainer.innerHTML = '';
+        new QRCode(this.qrContainer, { text: controllerUrl, width: 140, height: 140 });
+        closeButton.onclick = () => { modal.style.display = 'none'; };
 
         this.add.text(
             GAME_WIDTH / 2,
@@ -213,7 +209,6 @@ class MainScene extends Phaser.Scene {
             { fontFamily: 'monospace', fontSize: '12px', color: '#00dcf0' }
         ).setOrigin(0.5);
 
-        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.qrContainer?.remove());
     }
 
     connectMobileController() {
@@ -221,6 +216,7 @@ class MainScene extends Phaser.Scene {
             .channel('room_' + this.roomId)
             .on('broadcast', { event: 'input' }, ({ payload }) => {
                 if (payload && ['left', 'right', 'shoot'].includes(payload.action)) {
+                    document.getElementById('qr-modal').style.display = 'none';
                     this.mobileInputs[payload.action] = Boolean(payload.state);
                     if (payload.action === 'shoot' && payload.state) this.shootPatch();
                 }
