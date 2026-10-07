@@ -108,6 +108,10 @@ class MainScene extends Phaser.Scene {
         this.score = 0;
         this.energy = 100;
         this.level = 1;
+        this.roomId = Math.floor(1000 + Math.random() * 9000);
+        this.mobileInputs = { left: false, right: false, shoot: false };
+        this.createMobileControllerRoom();
+        this.connectMobileController();
 
         this.add.text(16, 12, '◆ CYBER SHIELD // ISND', {
             fontFamily: 'monospace',
@@ -153,6 +157,7 @@ class MainScene extends Phaser.Scene {
         this.firewalls = this.physics.add.group();
         this.bossBullets = this.physics.add.group();
         this.boss = null;
+        this.isVictory = false;
 
         // Controles
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -185,19 +190,68 @@ class MainScene extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.bossBullets, this.hitByBossProjectile, null, this);
     }
 
+    createMobileControllerRoom() {
+        const host = document.getElementById('game-container');
+        host.style.position = 'relative';
+
+        this.qrContainer = document.createElement('div');
+        this.qrContainer.id = 'qrcode-container';
+        Object.assign(this.qrContainer.style, {
+            position: 'absolute', right: '12px', top: '12px', padding: '8px',
+            background: '#ffffff', border: '2px solid #00dcf0', zIndex: '5'
+        });
+        host.appendChild(this.qrContainer);
+
+        const controllerUrl = window.location.href.replace('index.html', '').split('?')[0]
+            + 'controller.html?room=' + this.roomId;
+        new QRCode(this.qrContainer, { text: controllerUrl, width: 112, height: 112 });
+
+        this.add.text(
+            GAME_WIDTH / 2,
+            104,
+            `ESCANEA EL QR CON TU CELULAR PARA USARLO COMO CONTROL · SALA ${this.roomId}`,
+            { fontFamily: 'monospace', fontSize: '12px', color: '#00dcf0' }
+        ).setOrigin(0.5);
+
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.qrContainer?.remove());
+    }
+
+    connectMobileController() {
+        this.channel = supabaseClient
+            .channel('room_' + this.roomId)
+            .on('broadcast', { event: 'input' }, ({ payload }) => {
+                if (payload && ['left', 'right', 'shoot'].includes(payload.action)) {
+                    this.mobileInputs[payload.action] = Boolean(payload.state);
+                    if (payload.action === 'shoot' && payload.state) this.shootPatch();
+                }
+            })
+            .subscribe();
+
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            if (this.channel) supabaseClient.removeChannel(this.channel);
+        });
+    }
+
     update() {
         const speed = 480;
         this.player.body.setVelocity(0);
 
-        if (this.cursors.left.isDown || this.wasd.left.isDown) {
+        if (this.cursors.left.isDown || this.wasd.left.isDown || this.mobileInputs.left) {
             this.player.body.setVelocityX(-speed);
-        } else if (this.cursors.right.isDown || this.wasd.right.isDown) {
+        } else if (this.cursors.right.isDown || this.wasd.right.isDown || this.mobileInputs.right) {
             this.player.body.setVelocityX(speed);
         }
 
-        if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+        if (this.remoteInput.left) {
+            this.player.body.setVelocityX(-speed);
+        } else if (this.remoteInput.right) {
+            this.player.body.setVelocityX(speed);
+        }
+
+        if (Phaser.Input.Keyboard.JustDown(this.spaceKey) || (this.remoteInput.shoot && !this.remoteShootHeld)) {
             this.shootPatch();
         }
+        this.remoteShootHeld = this.remoteInput.shoot;
 
         // Limpiar disparos fuera de pantalla
         this.bullets.children.each((bullet) => {
@@ -225,9 +279,7 @@ class MainScene extends Phaser.Scene {
             }
         });
 
-        if (this.boss?.active) {
-            const followSpeed = Phaser.Math.Clamp((this.player.x - this.boss.x) * 1.8, -180, 180);
-            this.boss.body.setVelocity(followSpeed, 0);
+        if (this.boss && this.boss.active) {
             this.updateBossHealthBar();
         }
     }
@@ -291,13 +343,15 @@ class MainScene extends Phaser.Scene {
             enemy.setFillStyle(enemy.hp % 2 === 0 ? 0xff6688 : 0xcc0033);
             this.updateBossHealthBar();
 
-            if (enemy.hp <= 0) {
+            if (enemy.hp <= 0 && !this.isVictory) {
+                this.isVictory = true;
                 const originX = enemy.x;
                 const originY = enemy.y;
                 enemy.setVisible(false);
                 enemy.body.enable = false;
                 this.bossAttackTimer?.remove(false);
                 this.bossBar?.destroy();
+                this.bossBullets.clear(true, true);
                 this.score += 100;
                 this.scoreText.setText('AMENAZAS NEUTRALIZADAS: ' + this.score);
                 this.triggerVictory(originX, originY);
@@ -332,12 +386,12 @@ class MainScene extends Phaser.Scene {
         enemy.maxHp = 40;
         this.boss = enemy;
         this.physics.add.existing(enemy);
-        enemy.body.setAllowGravity(false).setVelocity(0, 0).setCollideWorldBounds(true);
+        enemy.body.setAllowGravity(false).setVelocity(320, 0).setCollideWorldBounds(true).setBounce(1, 0);
         this.enemies.add(enemy);
         this.bossBar = this.add.graphics().setDepth(900);
         this.updateBossHealthBar();
         this.bossAttackTimer = this.time.addEvent({
-            delay: 1200,
+            delay: 900,
             callback: this.fireBossProjectiles,
             callbackScope: this,
             loop: true
@@ -372,7 +426,7 @@ class MainScene extends Phaser.Scene {
 
     hitByBossProjectile(player, projectile) {
         projectile.destroy();
-        this.damageServer(15);
+        this.damageServer(3);
     }
 
     triggerVictory(x, y) {
@@ -401,7 +455,7 @@ class MainScene extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(1100).setScale(0);
         this.tweens.add({ targets: victoryText, scale: 1.2, duration: 650, ease: 'Bounce.Out' });
 
-        this.time.delayedCall(3500, () => {
+        this.time.delayedCall(3000, () => {
             this.scene.start('GameOverScene', { score: this.score, victory: true });
         });
     }
