@@ -5,7 +5,7 @@ const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-function conectarCelular(gameChannel) {
+function activateGameFromMobile(gameChannel) {
   console.log('¡Señal de celular recibida exitosamente en la PC!');
   window.playMode = 'mobile';
 
@@ -15,7 +15,7 @@ function conectarCelular(gameChannel) {
     qrModal.style.pointerEvents = 'none';
   }
 
-  gameChannel.send({ type: 'broadcast', event: 'PC_ACK', payload: { ok: true } });
+  gameChannel.send({ type: 'broadcast', event: 'PC_PONG', payload: {} });
 
   const activeScenes = window.game?.scene?.getScenes(true) || [];
   activeScenes.forEach((scene) => {
@@ -132,22 +132,22 @@ class MenuScene extends Phaser.Scene {
   connectMobileController() {
     if (typeof supabaseClient === 'undefined') return;
 
-    const roomId = window.GAME_ROOM_ID;
-    console.log('PC escuchando en la sala:', roomId);
+    const roomId = window.GAME_ROOM_ID || (new URLSearchParams(window.location.search)).get('room') || '1234';
+    console.log('Game.js escuchando en canal room_' + roomId);
     window.mobileInputs ??= { left: false, right: false, shoot: false };
     const gameChannel = supabaseClient.channel('room_' + roomId, {
-      config: { broadcast: { ack: false, self: false } }
+      config: { broadcast: { ack: false, self: true } }
     });
     this.channel = gameChannel;
 
     gameChannel
-      .on('broadcast', { event: 'PING_MAPPING' }, () => {
-        conectarCelular(gameChannel);
+      .on('broadcast', { event: 'MOBILE_PING' }, () => {
+        activateGameFromMobile(gameChannel);
         const roomTxt = document.getElementById('room-code-txt');
         if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
       })
       .on('broadcast', { event: 'GAME_INPUT' }, ({ payload }) => {
-        conectarCelular(gameChannel);
+        activateGameFromMobile(gameChannel);
         if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
         window.mobileInputs = window.mobileInputs || { left: false, right: false, shoot: false };
         window.mobileInputs[payload.action] = Boolean(payload.state);
@@ -169,8 +169,8 @@ class MainScene extends Phaser.Scene {
         this.score = 0;
         this.energy = 100;
         this.level = 1;
-        const roomId = window.GAME_ROOM_ID;
-        console.log('PC escuchando en la sala:', roomId);
+        const roomId = window.GAME_ROOM_ID || (new URLSearchParams(window.location.search)).get('room') || '1234';
+        console.log('Game.js escuchando en canal room_' + roomId);
         this.roomId = roomId;
         window.mobileInputs ??= { left: false, right: false, shoot: false };
         this.mobileInputs = window.mobileInputs;
@@ -283,13 +283,13 @@ class MainScene extends Phaser.Scene {
         if (typeof supabaseClient === 'undefined') return;
 
         const gameChannel = supabaseClient.channel('room_' + this.roomId, {
-            config: { broadcast: { ack: false, self: false } }
+            config: { broadcast: { ack: false, self: true } }
         });
         this.channel = gameChannel;
 
         gameChannel
-            .on('broadcast', { event: 'PING_MAPPING' }, () => {
-                conectarCelular(gameChannel);
+            .on('broadcast', { event: 'MOBILE_PING' }, () => {
+                activateGameFromMobile(gameChannel);
                 const roomTxt = document.getElementById('room-code-txt');
                 if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
                 if (!this.mobileConnectedNotified) {
@@ -301,7 +301,7 @@ class MainScene extends Phaser.Scene {
                 }
             })
             .on('broadcast', { event: 'GAME_INPUT' }, ({ payload }) => {
-                conectarCelular(gameChannel);
+                activateGameFromMobile(gameChannel);
                 if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
 
                 const qrModal = document.getElementById('qr-modal');

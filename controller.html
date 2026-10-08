@@ -69,48 +69,79 @@
     <button id="shoot" type="button">🎯 PARCHE DE SEGURIDAD<br>DISPARAR</button>
     <p class="hint">Mantén presionado para moverte o disparar.</p>
   </main>
+  <div id="mobile-debug" style="position: fixed; bottom: 0; left: 0; right: 0; max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.9); color: #00ff88; font-family: monospace; font-size: 10px; padding: 6px; border-top: 1px solid #00ff88; z-index: 99999; text-align: left; pointer-events: none;">--- DIAGNÓSTICO EN VIVO ---</div>
 
   <script>
-    const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
+    function logPhone(msg, isError = false) {
+      console.log(msg);
+      const box = document.getElementById('mobile-debug');
+      if (!box) return;
+      const line = document.createElement('div');
+      line.style.color = isError ? '#ff0055' : '#00ff88';
+      line.innerText = '> ' + msg;
+      box.appendChild(line);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    window.onerror = function (msg, url, line) {
+      logPhone(`ERROR JS: ${msg} (Línea ${line})`, true);
+    };
+
+    logPhone('Iniciando controlador...');
+
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room');
-    const statusDiv = document.getElementById('status-txt') || document.querySelector('.status') || document.body;
+    logPhone('Sala detectada: ' + (roomId || 'NINGUNA'));
     window.sendControl = () => {};
 
     if (!roomId) {
-      alert('Error: No se encontró número de sala en la URL.');
+      logPhone("ERROR: No hay 'room' en la URL.", true);
+    } else if (!window.supabase) {
+      logPhone('ERROR: La librería de Supabase no cargó.', true);
     } else {
-      const spClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      const channel = spClient.channel('room_' + roomId, {
-        config: { broadcast: { ack: false, self: false } }
-      });
-      let pulseTimer;
+      const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
 
-      channel
-        .on('broadcast', { event: 'PC_ACK' }, () => {
-          clearInterval(pulseTimer);
-          document.querySelectorAll('*').forEach((element) => {
-            if (element.children.length === 0 && (element.innerText.includes('CONECTANDO') || element.innerText.includes('CONECTADO'))) {
-              element.innerText = `✓ JUEGO CONECTADO (SALA ${roomId})`;
-              element.style.color = '#00ff88';
-            }
+      try {
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        logPhone('Cliente Supabase creado.');
+
+        const channel = client.channel('room_' + roomId, {
+          config: { broadcast: { ack: false, self: true } }
+        });
+
+        channel
+          .on('broadcast', { event: 'PC_PONG' }, () => {
+            logPhone('¡PC RESPONDIÓ! Conexión 100% exitosa.');
+            document.querySelectorAll('*').forEach((element) => {
+              if (element.children.length === 0 && (element.innerText.includes('CONECTANDO') || element.innerText.includes('CONECTADO'))) {
+                element.innerText = '✓ CONECTADO A SALA ' + roomId;
+                element.style.color = '#00ff88';
+              }
+            });
+          })
+          .subscribe((status, error) => {
+            logPhone('Estado WebSocket: ' + status);
+            if (error) logPhone('Error canal: ' + JSON.stringify(error), true);
+            if (status !== 'SUBSCRIBED') return;
+
+            logPhone('Enviando PING a la PC...');
+            setInterval(() => {
+              channel.send({ type: 'broadcast', event: 'MOBILE_PING', payload: { room: roomId } });
+            }, 600);
           });
-        })
-        .subscribe((status) => {
-          if (status !== 'SUBSCRIBED') return;
-          pulseTimer = setInterval(() => {
-            channel.send({ type: 'broadcast', event: 'PING_MAPPING', payload: {} });
-          }, 500);
-        });
 
-      window.sendControl = function (action, state) {
-        channel.send({
-          type: 'broadcast',
-          event: 'GAME_INPUT',
-          payload: { action, state }
-        });
-      };
+        window.sendControl = function (action, state) {
+          logPhone(`Entrada: ${action} = ${state}`);
+          channel.send({
+            type: 'broadcast',
+            event: 'GAME_INPUT',
+            payload: { action, state }
+          });
+        };
+      } catch (error) {
+        logPhone('Excepción Supabase: ' + error.message, true);
+      }
     }
 
     function bindControl(id, action) {
