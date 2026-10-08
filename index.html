@@ -7,7 +7,6 @@
   <script>
     window.playMode = null;
     window.qrClosedManual = false;
-    window.GAME_ROOM_ID = window.GAME_ROOM_ID || Math.floor(1000 + Math.random() * 9000);
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
@@ -33,8 +32,9 @@
 </head>
 <body>
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    window.GAME_ROOM_ID = urlParams.get('room') || Math.floor(1000 + Math.random() * 9000);
+    if (!window.GAME_ROOM_ID) {
+      window.GAME_ROOM_ID = Math.floor(1000 + Math.random() * 9000).toString();
+    }
   </script>
   <main id="game-container" aria-label="Cyber Shield ISND"></main>
   <div id="qr-modal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: rgba(0, 15, 30, 0.95); border: 2px solid #00ff88; padding: 20px; border-radius: 12px; text-align: center; font-family: monospace; color: #ffffff; box-shadow: 0 0 20px #00ff88; width: 280px;">
@@ -52,8 +52,6 @@
   <script src="game.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
-      window.GAME_ROOM_ID ??= Math.floor(1000 + Math.random() * 9000);
-
       let baseUrl = window.location.href.split('?')[0].split('#')[0];
       if (baseUrl.endsWith('index.html')) baseUrl = baseUrl.replace('index.html', '');
       if (!baseUrl.endsWith('/')) baseUrl += '/';

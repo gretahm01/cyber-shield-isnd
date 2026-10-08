@@ -74,49 +74,43 @@
     const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
     const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get('room') || '1234';
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const statusBadge = document.getElementById('status-badge');
-    let isConnectedToPC = false;
-    let connectInterval;
+    const roomId = urlParams.get('room');
+    const statusDiv = document.getElementById('status-txt') || document.querySelector('.status') || document.body;
+    window.sendControl = () => {};
 
-    statusBadge.textContent = `CONECTANDO A LA SALA ${roomId}...`;
+    if (!roomId) {
+      alert('Error: No se encontró número de sala en la URL.');
+    } else {
+      const spClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const channel = spClient.channel('room_' + roomId, {
+        config: { broadcast: { ack: false, self: false } }
+      });
+      let pulseTimer;
 
-    const channel = client.channel('room_' + roomId, {
-      config: { broadcast: { ack: false, self: false } }
-    });
-
-    channel
-      .on('broadcast', { event: 'PC_READY' }, () => {
-        isConnectedToPC = true;
-        clearInterval(connectInterval);
-        statusBadge.textContent = '✓ JUEGO CONECTADO';
-        statusBadge.style.color = '#00ff88';
-        statusBadge.classList.add('connected');
-      })
-      .subscribe((status) => {
-        if (status !== 'SUBSCRIBED') return;
-
-        connectInterval = setInterval(() => {
-          if (isConnectedToPC) {
-            clearInterval(connectInterval);
-            return;
-          }
-
-          channel.send({
-            type: 'broadcast',
-            event: 'MOBILE_CONNECT',
-            payload: { room: roomId }
+      channel
+        .on('broadcast', { event: 'PC_ACK' }, () => {
+          clearInterval(pulseTimer);
+          document.querySelectorAll('*').forEach((element) => {
+            if (element.children.length === 0 && (element.innerText.includes('CONECTANDO') || element.innerText.includes('CONECTADO'))) {
+              element.innerText = `✓ JUEGO CONECTADO (SALA ${roomId})`;
+              element.style.color = '#00ff88';
+            }
           });
-        }, 500);
-      });
+        })
+        .subscribe((status) => {
+          if (status !== 'SUBSCRIBED') return;
+          pulseTimer = setInterval(() => {
+            channel.send({ type: 'broadcast', event: 'PING_MAPPING', payload: {} });
+          }, 500);
+        });
 
-    function sendInput(action, state) {
-      channel.send({
-        type: 'broadcast',
-        event: 'GAME_INPUT',
-        payload: { action, state }
-      });
+      window.sendControl = function (action, state) {
+        channel.send({
+          type: 'broadcast',
+          event: 'GAME_INPUT',
+          payload: { action, state }
+        });
+      };
     }
 
     function bindControl(id, action) {
@@ -124,12 +118,12 @@
       const press = (event) => {
         event.preventDefault();
         button.classList.add('active');
-        sendInput(action, true);
+        window.sendControl(action, true);
       };
       const release = (event) => {
         event.preventDefault();
         button.classList.remove('active');
-        sendInput(action, false);
+        window.sendControl(action, false);
       };
       button.addEventListener('touchstart', press, { passive: false });
       button.addEventListener('touchend', release, { passive: false });
