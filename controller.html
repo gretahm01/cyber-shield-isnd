@@ -75,41 +75,38 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room') || '1234';
-    const statusDiv = document.getElementById('status-badge') || document.querySelector('.status') || document.body;
-    const spClient = window.supabase
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-      : null;
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     function updateStatus(text, color) {
-      statusDiv.innerText = text;
-      statusDiv.style.color = color;
+      const statusDiv = document.querySelector('.status') || document.getElementById('status-badge') || document.body;
+      document.querySelectorAll('*').forEach((element) => {
+        if (element.children.length === 0 && (element.innerText.includes('CONECTANDO') || element.innerText.includes('CONECTADO'))) {
+          element.innerText = text;
+          element.style.color = color;
+        }
+      });
       statusDiv.classList.add('connected');
     }
 
-    if (spClient) {
-      const channel = spClient.channel('room_' + roomId, {
-        config: { broadcast: { ack: false, self: false } }
-      });
+    const channel = supabaseClient.channel('room_' + roomId, {
+      config: { broadcast: { ack: false, self: false } }
+    });
 
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          updateStatus('✓ CONECTADO AL JUEGO', '#00ff88');
-          channel.send({ type: 'broadcast', event: 'join', payload: { connected: true } });
-        }
-      });
-
-      window.sendControl = function (action, state) {
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
         updateStatus('✓ CONECTADO AL JUEGO', '#00ff88');
-        channel.send({
-          type: 'broadcast',
-          event: 'input',
-          payload: { action, state }
-        });
-      };
-    } else {
-      updateStatus('SDK DE SUPABASE NO DISPONIBLE', '#ff4665');
-      window.sendControl = () => {};
-    }
+        channel.send({ type: 'broadcast', event: 'join', payload: { connected: true } });
+      }
+    });
+
+    window.sendControl = function (action, state) {
+      updateStatus('✓ CONECTADO AL JUEGO', '#00ff88');
+      channel.send({
+        type: 'broadcast',
+        event: 'input',
+        payload: { action, state }
+      });
+    };
 
     function bindControl(id, action) {
       const button = document.getElementById(id);

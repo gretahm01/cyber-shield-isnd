@@ -6,6 +6,7 @@
   <title>Cyber Shield ISND</title>
   <script>
     window.playMode = null;
+    window.qrClosedManual = false;
     window.GAME_ROOM_ID = window.GAME_ROOM_ID || Math.floor(1000 + Math.random() * 9000);
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -70,6 +71,7 @@
       if (closeBtn) {
         closeBtn.onclick = function () {
           window.playMode = 'keyboard';
+          window.qrClosedManual = true;
           const qrModal = document.getElementById('qr-modal');
           if (qrModal) {
             qrModal.style.display = 'none';

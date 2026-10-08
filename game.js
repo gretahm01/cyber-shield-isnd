@@ -95,7 +95,15 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
     button.on('pointerover', () => button.setFillStyle(COLORS.cyan));
     button.on('pointerout', () => button.setFillStyle(COLORS.blue));
-    const startGame = () => this.scene.start('MainScene');
+    const startGame = () => {
+      const modal = document.getElementById('qr-modal');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.style.pointerEvents = 'none';
+      }
+      window.qrClosedManual = true;
+      this.scene.start('MainScene');
+    };
 
     button.on('pointerdown', startGame);
     label.setInteractive({ useHandCursor: true }).on('pointerdown', startGame);
@@ -116,10 +124,18 @@ class MenuScene extends Phaser.Scene {
         const roomTxt = document.getElementById('room-code-txt');
         if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
         const qrModal = document.getElementById('qr-modal');
-        if (qrModal) qrModal.style.display = 'none';
+        if (qrModal) {
+          qrModal.style.display = 'none';
+          qrModal.style.pointerEvents = 'none';
+        }
+        const notice = this.add.text(GAME_WIDTH / 2, 155, '✓ CELULAR CONECTADO', {
+          fontFamily: 'monospace', fontSize: '18px', fontStyle: 'bold', color: '#00ff88'
+        }).setOrigin(0.5).setDepth(20);
+        this.time.delayedCall(1800, () => notice.destroy());
       })
       .on('broadcast', { event: 'input' }, ({ payload }) => {
         if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
+        window.mobileInputs = window.mobileInputs || { left: false, right: false, shoot: false };
         window.mobileInputs[payload.action] = Boolean(payload.state);
       })
       .subscribe();
@@ -227,12 +243,15 @@ class MainScene extends Phaser.Scene {
     createMobileControllerRoom() {
         const modal = document.getElementById('qr-modal');
         const closeButton = document.getElementById('close-qr-btn');
-        if (window.playMode !== 'keyboard' && window.playMode !== 'mobile') {
+        if (!window.qrClosedManual && window.playMode !== 'keyboard' && window.playMode !== 'mobile') {
             modal.style.display = 'block';
+            modal.style.pointerEvents = 'auto';
         }
         closeButton.onclick = () => {
             window.playMode = 'keyboard';
+            window.qrClosedManual = true;
             modal.style.display = 'none';
+            modal.style.pointerEvents = 'none';
         };
 
         this.add.text(
@@ -256,14 +275,24 @@ class MainScene extends Phaser.Scene {
                 const roomTxt = document.getElementById('room-code-txt');
                 if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
                 const qrModal = document.getElementById('qr-modal');
-                if (qrModal) qrModal.style.display = 'none';
+                if (qrModal) {
+                    qrModal.style.display = 'none';
+                    qrModal.style.pointerEvents = 'none';
+                }
+                const notice = this.add.text(GAME_WIDTH / 2, 126, '✓ CELULAR CONECTADO', {
+                    fontFamily: 'monospace', fontSize: '18px', fontStyle: 'bold', color: '#00ff88'
+                }).setOrigin(0.5).setDepth(20);
+                this.time.delayedCall(1800, () => notice.destroy());
             })
             .on('broadcast', { event: 'input' }, ({ payload }) => {
                 if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
 
                 const qrModal = document.getElementById('qr-modal');
-                if (qrModal) qrModal.style.display = 'none';
-                window.mobileInputs ??= { left: false, right: false, shoot: false };
+                if (qrModal) {
+                    qrModal.style.display = 'none';
+                    qrModal.style.pointerEvents = 'none';
+                }
+                window.mobileInputs = window.mobileInputs || { left: false, right: false, shoot: false };
                 window.mobileInputs[payload.action] = Boolean(payload.state);
             })
             .subscribe();
