@@ -5,6 +5,23 @@ const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+function handleMobileConnect() {
+  window.playMode = 'mobile';
+
+  const qrModal = document.getElementById('qr-modal');
+  if (qrModal) {
+    qrModal.style.display = 'none';
+    qrModal.style.pointerEvents = 'none';
+  }
+
+  const activeScenes = window.game?.scene?.getScenes(true) || [];
+  activeScenes.forEach((scene) => {
+    if (scene.scene.key === 'StartScene' || scene.scene.key === 'MenuScene') {
+      scene.scene.start('MainScene');
+    }
+  });
+}
+
 let retroAudioContext;
 
 function playRetroSound(type) {
@@ -120,20 +137,14 @@ class MenuScene extends Phaser.Scene {
 
     this.channel
       .on('broadcast', { event: 'join' }, () => {
-        window.playMode = 'mobile';
+        handleMobileConnect();
         const roomTxt = document.getElementById('room-code-txt');
         if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
-        const qrModal = document.getElementById('qr-modal');
-        if (qrModal) {
-          qrModal.style.display = 'none';
-          qrModal.style.pointerEvents = 'none';
-        }
-        const notice = this.add.text(GAME_WIDTH / 2, 155, '✓ CELULAR CONECTADO', {
-          fontFamily: 'monospace', fontSize: '18px', fontStyle: 'bold', color: '#00ff88'
-        }).setOrigin(0.5).setDepth(20);
-        this.time.delayedCall(1800, () => notice.destroy());
       })
+      .on('broadcast', { event: 'ping' }, handleMobileConnect)
+      .on('broadcast', { event: 'start' }, handleMobileConnect)
       .on('broadcast', { event: 'input' }, ({ payload }) => {
+        handleMobileConnect();
         if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
         window.mobileInputs = window.mobileInputs || { left: false, right: false, shoot: false };
         window.mobileInputs[payload.action] = Boolean(payload.state);
@@ -160,6 +171,7 @@ class MainScene extends Phaser.Scene {
         window.mobileInputs ??= { left: false, right: false, shoot: false };
         this.mobileInputs = window.mobileInputs;
         this.nextMobileShotAt = 0;
+        this.mobileConnectedNotified = false;
         this.createMobileControllerRoom();
         this.connectMobileController();
 
@@ -271,20 +283,21 @@ class MainScene extends Phaser.Scene {
                 config: { broadcast: { ack: false, self: false } }
             })
       .on('broadcast', { event: 'join' }, () => {
-                window.playMode = 'mobile';
+                handleMobileConnect();
                 const roomTxt = document.getElementById('room-code-txt');
                 if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
-                const qrModal = document.getElementById('qr-modal');
-                if (qrModal) {
-                    qrModal.style.display = 'none';
-                    qrModal.style.pointerEvents = 'none';
+                if (!this.mobileConnectedNotified) {
+                    this.mobileConnectedNotified = true;
+                    const notice = this.add.text(GAME_WIDTH / 2, 126, '✓ CELULAR CONECTADO', {
+                        fontFamily: 'monospace', fontSize: '18px', fontStyle: 'bold', color: '#00ff88'
+                    }).setOrigin(0.5).setDepth(20);
+                    this.time.delayedCall(1800, () => notice.destroy());
                 }
-                const notice = this.add.text(GAME_WIDTH / 2, 126, '✓ CELULAR CONECTADO', {
-                    fontFamily: 'monospace', fontSize: '18px', fontStyle: 'bold', color: '#00ff88'
-                }).setOrigin(0.5).setDepth(20);
-                this.time.delayedCall(1800, () => notice.destroy());
             })
+            .on('broadcast', { event: 'ping' }, handleMobileConnect)
+            .on('broadcast', { event: 'start' }, handleMobileConnect)
             .on('broadcast', { event: 'input' }, ({ payload }) => {
+                handleMobileConnect();
                 if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
 
                 const qrModal = document.getElementById('qr-modal');
@@ -306,9 +319,12 @@ class MainScene extends Phaser.Scene {
         const speed = 480;
         this.player.body.setVelocity(0);
 
-        const moveLeft = this.cursors.left.isDown || this.wasd.left.isDown || (window.mobileInputs && window.mobileInputs.left);
-        const moveRight = this.cursors.right.isDown || this.wasd.right.isDown || (window.mobileInputs && window.mobileInputs.right);
-        const isShooting = Phaser.Input.Keyboard.JustDown(this.spaceKey) || (window.mobileInputs && window.mobileInputs.shoot);
+        const mobileLeft = window.mobileInputs && window.mobileInputs.left;
+        const mobileRight = window.mobileInputs && window.mobileInputs.right;
+        const mobileShoot = window.mobileInputs && window.mobileInputs.shoot;
+        const moveLeft = this.cursors.left.isDown || this.wasd.left.isDown || mobileLeft;
+        const moveRight = this.cursors.right.isDown || this.wasd.right.isDown || mobileRight;
+        const isShooting = Phaser.Input.Keyboard.JustDown(this.spaceKey) || mobileShoot;
 
         if (moveLeft) {
             this.player.body.setVelocityX(-speed);
@@ -703,7 +719,7 @@ class GameOverScene extends Phaser.Scene {
   }
 }
 
-new Phaser.Game({
+window.game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game-container',
   width: GAME_WIDTH,

@@ -91,16 +91,26 @@
     const channel = supabaseClient.channel('room_' + roomId, {
       config: { broadcast: { ack: false, self: false } }
     });
+    let joinInterval;
 
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         updateStatus('✓ CONECTADO AL JUEGO', '#00ff88');
-        channel.send({ type: 'broadcast', event: 'join', payload: { connected: true } });
+        const sendJoin = () => channel.send({
+          type: 'broadcast', event: 'join', payload: { connected: true }
+        });
+        sendJoin();
+        joinInterval = setInterval(sendJoin, 1000);
       }
     });
 
     window.sendControl = function (action, state) {
       updateStatus('✓ CONECTADO AL JUEGO', '#00ff88');
+      if (state && joinInterval) {
+        clearInterval(joinInterval);
+        joinInterval = null;
+        channel.send({ type: 'broadcast', event: 'start', payload: { connected: true } });
+      }
       channel.send({
         type: 'broadcast',
         event: 'input',
