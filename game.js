@@ -65,6 +65,7 @@ class MenuScene extends Phaser.Scene {
   constructor() { super('MenuScene'); }
 
   create() {
+    this.connectMobileController();
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, COLORS.dark);
     this.add.text(GAME_WIDTH / 2, 64, 'CYBER SHIELD ISND', {
       fontFamily: 'Arial Black, Arial', fontSize: '46px', color: '#20dcff', stroke: '#07283a', strokeThickness: 8
@@ -94,8 +95,46 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
     button.on('pointerover', () => button.setFillStyle(COLORS.cyan));
     button.on('pointerout', () => button.setFillStyle(COLORS.blue));
-    button.on('pointerdown', () => this.scene.start('MainScene'));
-    label.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.scene.start('MainScene'));
+    const startGame = () => {
+      if (window.playMode === 'keyboard' || window.playMode === 'mobile') {
+        this.scene.start('MainScene');
+        return;
+      }
+
+      const qrModal = document.getElementById('qr-modal');
+      if (qrModal) qrModal.style.display = 'block';
+    };
+
+    button.on('pointerdown', startGame);
+    label.setInteractive({ useHandCursor: true }).on('pointerdown', startGame);
+  }
+
+  connectMobileController() {
+    if (typeof supabaseClient === 'undefined') return;
+
+    const roomId = window.GAME_ROOM_ID || '1234';
+    window.mobileInputs ??= { left: false, right: false, shoot: false };
+    this.channel = supabaseClient.channel('room_' + roomId, {
+      config: { broadcast: { ack: false, self: false } }
+    });
+
+    this.channel
+      .on('broadcast', { event: 'ping' }, () => {
+        window.playMode = 'mobile';
+        const roomTxt = document.getElementById('room-code-txt');
+        if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
+        const qrModal = document.getElementById('qr-modal');
+        if (qrModal) qrModal.style.display = 'none';
+      })
+      .on('broadcast', { event: 'input' }, ({ payload }) => {
+        if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
+        window.mobileInputs[payload.action] = Boolean(payload.state);
+      })
+      .subscribe();
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      if (this.channel) supabaseClient.removeChannel(this.channel);
+    });
   }
 }
 
@@ -110,7 +149,9 @@ class MainScene extends Phaser.Scene {
         this.level = 1;
         const roomId = window.GAME_ROOM_ID || (window.GAME_ROOM_ID = Math.floor(1000 + Math.random() * 9000));
         this.roomId = roomId;
-        this.mobileInputs = { left: false, right: false, shoot: false };
+        window.mobileInputs ??= { left: false, right: false, shoot: false };
+        this.mobileInputs = window.mobileInputs;
+        this.nextMobileShotAt = 0;
         this.createMobileControllerRoom();
         this.connectMobileController();
 
@@ -194,8 +235,13 @@ class MainScene extends Phaser.Scene {
     createMobileControllerRoom() {
         const modal = document.getElementById('qr-modal');
         const closeButton = document.getElementById('close-qr-btn');
-        modal.style.display = 'block';
-        closeButton.onclick = () => { modal.style.display = 'none'; };
+        if (window.playMode !== 'keyboard' && window.playMode !== 'mobile') {
+            modal.style.display = 'block';
+        }
+        closeButton.onclick = () => {
+            window.playMode = 'keyboard';
+            modal.style.display = 'none';
+        };
 
         this.add.text(
             GAME_WIDTH / 2,
@@ -207,14 +253,26 @@ class MainScene extends Phaser.Scene {
     }
 
     connectMobileController() {
+        if (typeof supabaseClient === 'undefined') return;
+
         this.channel = supabaseClient
-            .channel('room_' + this.roomId)
+            .channel('room_' + this.roomId, {
+                config: { broadcast: { ack: false, self: false } }
+            })
+            .on('broadcast', { event: 'ping' }, () => {
+                window.playMode = 'mobile';
+                const roomTxt = document.getElementById('room-code-txt');
+                if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
+                const qrModal = document.getElementById('qr-modal');
+                if (qrModal) qrModal.style.display = 'none';
+            })
             .on('broadcast', { event: 'input' }, ({ payload }) => {
-                if (payload && ['left', 'right', 'shoot'].includes(payload.action)) {
-                    document.getElementById('qr-modal').style.display = 'none';
-                    this.mobileInputs[payload.action] = Boolean(payload.state);
-                    if (payload.action === 'shoot' && payload.state) this.shootPatch();
-                }
+                if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
+
+                const qrModal = document.getElementById('qr-modal');
+                if (qrModal) qrModal.style.display = 'none';
+                window.mobileInputs ??= { left: false, right: false, shoot: false };
+                window.mobileInputs[payload.action] = Boolean(payload.state);
             })
             .subscribe();
 
@@ -227,22 +285,20 @@ class MainScene extends Phaser.Scene {
         const speed = 480;
         this.player.body.setVelocity(0);
 
-        if (this.cursors.left.isDown || this.wasd.left.isDown || this.mobileInputs.left) {
+        const moveLeft = this.cursors.left.isDown || this.wasd.left.isDown || (window.mobileInputs && window.mobileInputs.left);
+        const moveRight = this.cursors.right.isDown || this.wasd.right.isDown || (window.mobileInputs && window.mobileInputs.right);
+        const isShooting = Phaser.Input.Keyboard.JustDown(this.spaceKey) || (window.mobileInputs && window.mobileInputs.shoot);
+
+        if (moveLeft) {
             this.player.body.setVelocityX(-speed);
-        } else if (this.cursors.right.isDown || this.wasd.right.isDown || this.mobileInputs.right) {
+        } else if (moveRight) {
             this.player.body.setVelocityX(speed);
         }
 
-        if (this.remoteInput.left) {
-            this.player.body.setVelocityX(-speed);
-        } else if (this.remoteInput.right) {
-            this.player.body.setVelocityX(speed);
-        }
-
-        if (Phaser.Input.Keyboard.JustDown(this.spaceKey) || (this.remoteInput.shoot && !this.remoteShootHeld)) {
+        if (isShooting && this.time.now >= this.nextMobileShotAt) {
             this.shootPatch();
+            this.nextMobileShotAt = this.time.now + 130;
         }
-        this.remoteShootHeld = this.remoteInput.shoot;
 
         // Limpiar disparos fuera de pantalla
         this.bullets.children.each((bullet) => {

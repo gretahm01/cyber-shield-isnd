@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cyber Shield ISND</title>
+  <script>
+    window.playMode = null;
+    window.GAME_ROOM_ID = window.GAME_ROOM_ID || Math.floor(1000 + Math.random() * 9000);
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     :root { color-scheme: dark; }
@@ -65,7 +69,9 @@
       const closeBtn = document.getElementById('close-qr-btn');
       if (closeBtn) {
         closeBtn.onclick = function () {
-          document.getElementById('qr-modal').style.display = 'none';
+          window.playMode = 'keyboard';
+          const qrModal = document.getElementById('qr-modal');
+          if (qrModal) qrModal.style.display = 'none';
         };
       }
     });
