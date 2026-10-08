@@ -20,7 +20,7 @@
     }
     main { width: min(100%, 440px); padding: 24px 20px; text-align: center; }
     h1 { margin: 0; color: #00dcf0; font-size: clamp(1.4rem, 6vw, 2rem); text-shadow: 0 0 14px #00dcf088; }
-    #status-txt {
+    #status-badge {
       display: inline-block;
       margin: 14px 0 28px;
       padding: 7px 12px;
@@ -30,7 +30,7 @@
       font-size: .75rem;
       letter-spacing: .06em;
     }
-    #status-txt.connected { border-color: #00ff88; color: #00ff88; box-shadow: 0 0 14px #00ff8855; }
+    #status-badge.connected { border-color: #00ff88; color: #00ff88; box-shadow: 0 0 14px #00ff8855; }
     .directions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     button {
       min-height: 104px;
@@ -60,7 +60,7 @@
 <body>
   <main>
     <h1>◆ CYBER SHIELD</h1>
-    <div id="status-txt">CONECTANDO AL JUEGO...</div>
+    <div id="status-badge">CONECTANDO AL JUEGO...</div>
     <section class="directions" aria-label="Movimiento">
       <button id="left" type="button">◄ IZQUIERDA</button>
       <button id="right" type="button">DERECHA ►</button>
@@ -72,34 +72,43 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room') || '1234';
-    const statusElement = document.getElementById('status-txt') || document.querySelector('div');
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    const channel = supabaseClient.channel('room_' + roomId, {
-      config: { broadcast: { ack: false, self: false } }
-    });
-    let pingTimer;
+    const statusDiv = document.getElementById('status-badge') || document.querySelector('.status') || document.body;
+    const spClient = window.supabase
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
 
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        if (statusElement) {
-          statusElement.innerText = '✓ CONECTADO AL JUEGO';
-          statusElement.style.color = '#00ff88';
-          statusElement.classList.add('connected');
+    function updateStatus(text, color) {
+      statusDiv.innerText = text;
+      statusDiv.style.color = color;
+      statusDiv.classList.add('connected');
+    }
+
+    if (spClient) {
+      const channel = spClient.channel('room_' + roomId, {
+        config: { broadcast: { ack: false, self: false } }
+      });
+
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          updateStatus('✓ CONECTADO AL JUEGO', '#00ff88');
+          channel.send({ type: 'broadcast', event: 'join', payload: { connected: true } });
         }
-        const sendPing = () => channel.send({ type: 'broadcast', event: 'ping', payload: { alive: true } });
-        sendPing();
-        clearInterval(pingTimer);
-        pingTimer = setInterval(sendPing, 1000);
-      }
-    });
+      });
 
-    window.addEventListener('pagehide', () => clearInterval(pingTimer), { once: true });
-
-    function sendInput(action, state) {
-      channel.send({ type: 'broadcast', event: 'input', payload: { action, state } });
+      window.sendControl = function (action, state) {
+        updateStatus('✓ CONECTADO AL JUEGO', '#00ff88');
+        channel.send({
+          type: 'broadcast',
+          event: 'input',
+          payload: { action, state }
+        });
+      };
+    } else {
+      updateStatus('SDK DE SUPABASE NO DISPONIBLE', '#ff4665');
+      window.sendControl = () => {};
     }
 
     function bindControl(id, action) {
@@ -107,12 +116,12 @@
       const press = (event) => {
         event.preventDefault();
         button.classList.add('active');
-        sendInput(action, true);
+        window.sendControl(action, true);
       };
       const release = (event) => {
         event.preventDefault();
         button.classList.remove('active');
-        sendInput(action, false);
+        window.sendControl(action, false);
       };
       button.addEventListener('touchstart', press, { passive: false });
       button.addEventListener('touchend', release, { passive: false });

@@ -95,15 +95,7 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
     button.on('pointerover', () => button.setFillStyle(COLORS.cyan));
     button.on('pointerout', () => button.setFillStyle(COLORS.blue));
-    const startGame = () => {
-      if (window.playMode === 'keyboard' || window.playMode === 'mobile') {
-        this.scene.start('MainScene');
-        return;
-      }
-
-      const qrModal = document.getElementById('qr-modal');
-      if (qrModal) qrModal.style.display = 'block';
-    };
+    const startGame = () => this.scene.start('MainScene');
 
     button.on('pointerdown', startGame);
     label.setInteractive({ useHandCursor: true }).on('pointerdown', startGame);
@@ -119,7 +111,7 @@ class MenuScene extends Phaser.Scene {
     });
 
     this.channel
-      .on('broadcast', { event: 'ping' }, () => {
+      .on('broadcast', { event: 'join' }, () => {
         window.playMode = 'mobile';
         const roomTxt = document.getElementById('room-code-txt');
         if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
@@ -259,7 +251,7 @@ class MainScene extends Phaser.Scene {
             .channel('room_' + this.roomId, {
                 config: { broadcast: { ack: false, self: false } }
             })
-            .on('broadcast', { event: 'ping' }, () => {
+      .on('broadcast', { event: 'join' }, () => {
                 window.playMode = 'mobile';
                 const roomTxt = document.getElementById('room-code-txt');
                 if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';

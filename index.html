@@ -71,7 +71,10 @@
         closeBtn.onclick = function () {
           window.playMode = 'keyboard';
           const qrModal = document.getElementById('qr-modal');
-          if (qrModal) qrModal.style.display = 'none';
+          if (qrModal) {
+            qrModal.style.display = 'none';
+            qrModal.style.pointerEvents = 'none';
+          }
         };
       }
     });
