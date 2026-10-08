@@ -5,7 +5,7 @@ const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-function handleMobileConnect() {
+function startGameFromMobile(gameChannel) {
   window.playMode = 'mobile';
 
   const qrModal = document.getElementById('qr-modal');
@@ -13,6 +13,8 @@ function handleMobileConnect() {
     qrModal.style.display = 'none';
     qrModal.style.pointerEvents = 'none';
   }
+
+  gameChannel.send({ type: 'broadcast', event: 'PC_READY', payload: {} });
 
   const activeScenes = window.game?.scene?.getScenes(true) || [];
   activeScenes.forEach((scene) => {
@@ -131,20 +133,20 @@ class MenuScene extends Phaser.Scene {
 
     const roomId = window.GAME_ROOM_ID || '1234';
     window.mobileInputs ??= { left: false, right: false, shoot: false };
-    this.channel = supabaseClient.channel('room_' + roomId, {
-      config: { broadcast: { ack: false, self: false } }
+    const gameChannel = supabaseClient.channel('room_' + roomId, {
+      config: { broadcast: { ack: true, self: true } }
     });
+    this.channel = gameChannel;
 
-    this.channel
-      .on('broadcast', { event: 'join' }, () => {
-        handleMobileConnect();
+    gameChannel
+      .on('broadcast', { event: 'MOBILE_CONNECT' }, () => {
+        console.log('¡Móvil detectado exitosamente!');
+        startGameFromMobile(gameChannel);
         const roomTxt = document.getElementById('room-code-txt');
         if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
       })
-      .on('broadcast', { event: 'ping' }, handleMobileConnect)
-      .on('broadcast', { event: 'start' }, handleMobileConnect)
-      .on('broadcast', { event: 'input' }, ({ payload }) => {
-        handleMobileConnect();
+      .on('broadcast', { event: 'GAME_INPUT' }, ({ payload }) => {
+        startGameFromMobile(gameChannel);
         if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
         window.mobileInputs = window.mobileInputs || { left: false, right: false, shoot: false };
         window.mobileInputs[payload.action] = Boolean(payload.state);
@@ -278,12 +280,15 @@ class MainScene extends Phaser.Scene {
     connectMobileController() {
         if (typeof supabaseClient === 'undefined') return;
 
-        this.channel = supabaseClient
-            .channel('room_' + this.roomId, {
-                config: { broadcast: { ack: false, self: false } }
-            })
-      .on('broadcast', { event: 'join' }, () => {
-                handleMobileConnect();
+        const gameChannel = supabaseClient.channel('room_' + this.roomId, {
+            config: { broadcast: { ack: true, self: true } }
+        });
+        this.channel = gameChannel;
+
+        gameChannel
+            .on('broadcast', { event: 'MOBILE_CONNECT' }, () => {
+                console.log('¡Móvil detectado exitosamente!');
+                startGameFromMobile(gameChannel);
                 const roomTxt = document.getElementById('room-code-txt');
                 if (roomTxt) roomTxt.innerText = '✓ CELULAR CONECTADO';
                 if (!this.mobileConnectedNotified) {
@@ -294,10 +299,8 @@ class MainScene extends Phaser.Scene {
                     this.time.delayedCall(1800, () => notice.destroy());
                 }
             })
-            .on('broadcast', { event: 'ping' }, handleMobileConnect)
-            .on('broadcast', { event: 'start' }, handleMobileConnect)
-            .on('broadcast', { event: 'input' }, ({ payload }) => {
-                handleMobileConnect();
+            .on('broadcast', { event: 'GAME_INPUT' }, ({ payload }) => {
+                startGameFromMobile(gameChannel);
                 if (!payload || !['left', 'right', 'shoot'].includes(payload.action)) return;
 
                 const qrModal = document.getElementById('qr-modal');
