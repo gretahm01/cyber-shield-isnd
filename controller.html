@@ -73,16 +73,17 @@
   <script>
     const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
-    const roomId = new URLSearchParams(window.location.search).get('room') || '1234';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room') || '1234';
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const statusBadge = document.getElementById('status-badge');
     let isConnectedToPC = false;
     let connectInterval;
 
     statusBadge.textContent = `CONECTANDO A LA SALA ${roomId}...`;
 
-    const channel = supabaseClient.channel('room_' + roomId, {
-      config: { broadcast: { ack: true, self: true } }
+    const channel = client.channel('room_' + roomId, {
+      config: { broadcast: { ack: false, self: false } }
     });
 
     channel
@@ -107,7 +108,7 @@
             event: 'MOBILE_CONNECT',
             payload: { room: roomId }
           });
-        }, 800);
+        }, 500);
       });
 
     function sendInput(action, state) {
