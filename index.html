@@ -55,7 +55,8 @@
       let baseUrl = window.location.href.split('?')[0].split('#')[0];
       if (baseUrl.endsWith('index.html')) baseUrl = baseUrl.replace('index.html', '');
       if (!baseUrl.endsWith('/')) baseUrl += '/';
-      const controllerUrl = baseUrl + 'controller.html?room=' + window.GAME_ROOM_ID;
+      const roomId = window.GAME_ROOM_ID;
+      const controllerUrl = baseUrl + 'controller.html?room=' + roomId + '&v=' + Date.now();
 
       const roomTxt = document.getElementById('room-code-txt');
       if (roomTxt) roomTxt.innerText = 'SALA: ' + window.GAME_ROOM_ID;

@@ -1,172 +1,135 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#06111e">
-  <title>Cyber Shield ISND - Control</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cyber Shield Controller</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body {
-      min-height: 100dvh;
-      margin: 0;
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      background: radial-gradient(circle at top, #123454, #06111e 58%, #02050b);
-      color: #dffcff;
-      font-family: ui-monospace, Consolas, monospace;
-    }
-    main { width: min(100%, 440px); padding: 24px 20px; text-align: center; }
-    h1 { margin: 0; color: #00dcf0; font-size: clamp(1.4rem, 6vw, 2rem); text-shadow: 0 0 14px #00dcf088; }
-    #status-badge {
-      display: inline-block;
-      margin: 14px 0 28px;
-      padding: 7px 12px;
-      border: 1px solid #496376;
-      border-radius: 999px;
-      color: #90aabd;
-      font-size: .75rem;
-      letter-spacing: .06em;
-    }
-    #status-badge.connected { border-color: #00ff88; color: #00ff88; box-shadow: 0 0 14px #00ff8855; }
-    .directions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    button {
-      min-height: 104px;
-      border: 2px solid #00dcf0;
-      border-radius: 16px;
-      color: #eaffff;
-      background: linear-gradient(145deg, #123c5d, #071c31);
-      box-shadow: inset 0 0 20px #00dcf022, 0 0 16px #00dcf033;
-      font: 700 1rem ui-monospace, Consolas, monospace;
-      touch-action: none;
-      user-select: none;
-      cursor: pointer;
-    }
-    #shoot {
-      width: 100%;
-      min-height: 145px;
-      margin-top: 20px;
-      border-color: #00ff88;
-      background: linear-gradient(145deg, #12573f, #082d28);
-      box-shadow: inset 0 0 28px #00ff8833, 0 0 22px #00ff8844;
-      font-size: 1.05rem;
-    }
-    button:active, button.active { transform: scale(.96); filter: brightness(1.5); box-shadow: 0 0 25px #ffffff99; }
-    .hint { margin: 20px 0 0; color: #7090a0; font-size: .75rem; line-height: 1.5; }
+    * { box-sizing: border-box; touch-action: manipulation; user-select: none; }
+    body { background: #000b14; color: #fff; font-family: monospace; text-align: center; margin: 0; padding: 10px 10px 155px; }
+    .title { color: #00ffff; margin: 10px 0 5px; font-size: 18px; }
+    #status-box { background: rgba(0,255,136,.1); border: 2px solid #00ff88; color: #00ff88; padding: 10px; border-radius: 8px; margin: 10px auto; font-weight: bold; font-size: 13px; max-width: 300px; }
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px auto; max-width: 320px; }
+    .btn { background: #002233; border: 2px solid #00ffff; color: #fff; font: bold 16px monospace; padding: 20px 10px; border-radius: 8px; cursor: pointer; }
+    .btn:active { background: #00ff88; color: #000; }
+    .btn-shoot { background: #ff0055; border-color: #ff0055; grid-column: span 2; padding: 22px; font-size: 18px; color: #fff; }
+    .btn-shoot:active { background: #ff5588; }
+    #mobile-debug { position: fixed; bottom: 0; left: 0; right: 0; height: 140px; overflow-y: auto; background: #000; color: #00ff88; border-top: 2px solid #00ff88; padding: 8px; font-size: 11px; text-align: left; z-index: 999999; word-break: break-all; pointer-events: none; }
   </style>
 </head>
 <body>
-  <main>
-    <h1>◆ CYBER SHIELD</h1>
-    <div id="status-badge">CONECTANDO AL JUEGO...</div>
-    <section class="directions" aria-label="Movimiento">
-      <button id="left" type="button">◄ IZQUIERDA</button>
-      <button id="right" type="button">DERECHA ►</button>
-    </section>
-    <button id="shoot" type="button">🎯 PARCHE DE SEGURIDAD<br>DISPARAR</button>
-    <p class="hint">Mantén presionado para moverte o disparar.</p>
-  </main>
-  <div id="mobile-debug" style="position: fixed; bottom: 0; left: 0; right: 0; max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.9); color: #00ff88; font-family: monospace; font-size: 10px; padding: 6px; border-top: 1px solid #00ff88; z-index: 99999; text-align: left; pointer-events: none;">--- DIAGNÓSTICO EN VIVO ---</div>
+  <div class="title">◆ CYBER SHIELD CONTROL ◆</div>
+  <div id="status-box">INICIANDO CONTROL...</div>
+
+  <div class="btn-grid">
+    <button class="btn" id="btn-left" type="button">◄ IZQUIERDA</button>
+    <button class="btn" id="btn-right" type="button">DERECHA ►</button>
+    <button class="btn btn-shoot" id="btn-shoot" type="button">🎯 PARCHE DE SEGURIDAD</button>
+  </div>
+
+  <div id="mobile-debug"><b>[LOG DE DEPURACIÓN EN VIVO]</b></div>
 
   <script>
-    function logPhone(msg, isError = false) {
-      console.log(msg);
+    function log(msg, err = false) {
       const box = document.getElementById('mobile-debug');
       if (!box) return;
-      const line = document.createElement('div');
-      line.style.color = isError ? '#ff0055' : '#00ff88';
-      line.innerText = '> ' + msg;
-      box.appendChild(line);
+
+      const div = document.createElement('div');
+      div.style.color = err ? '#ff0055' : '#00ff88';
+      div.innerText = (err ? '[ERR] ' : '[OK] ') + msg;
+      box.appendChild(div);
       box.scrollTop = box.scrollHeight;
+      console.log(msg);
     }
 
-    window.onerror = function (msg, url, line) {
-      logPhone(`ERROR JS: ${msg} (Línea ${line})`, true);
+    window.onerror = function (message, url, line) {
+      log('Error script L' + line + ': ' + message, true);
     };
 
-    logPhone('Iniciando controlador...');
+    log('Página cargada correctamente.');
 
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room');
-    logPhone('Sala detectada: ' + (roomId || 'NINGUNA'));
+    const statusBox = document.getElementById('status-box');
     window.sendControl = () => {};
 
+    log('Sala en URL: ' + (roomId || 'NO DETECTADA'));
+
     if (!roomId) {
-      logPhone("ERROR: No hay 'room' en la URL.", true);
+      log('ERROR: La URL no contiene número de sala.', true);
+      statusBox.innerText = 'ERROR DE SALA';
     } else if (!window.supabase) {
-      logPhone('ERROR: La librería de Supabase no cargó.', true);
+      log('ERROR: Librería Supabase no disponible.', true);
+      statusBox.innerText = 'ERROR CDN SUPABASE';
     } else {
       const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
 
       try {
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        logPhone('Cliente Supabase creado.');
+        const sp = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        log('Cliente Supabase creado.');
 
-        const channel = client.channel('room_' + roomId, {
+        const channel = sp.channel('room_' + roomId, {
           config: { broadcast: { ack: false, self: true } }
         });
 
         channel
           .on('broadcast', { event: 'PC_PONG' }, () => {
-            logPhone('¡PC RESPONDIÓ! Conexión 100% exitosa.');
-            document.querySelectorAll('*').forEach((element) => {
-              if (element.children.length === 0 && (element.innerText.includes('CONECTANDO') || element.innerText.includes('CONECTADO'))) {
-                element.innerText = '✓ CONECTADO A SALA ' + roomId;
-                element.style.color = '#00ff88';
-              }
-            });
+            log('¡PC RESPONDIÓ! Conectado con éxito.');
+            statusBox.innerText = '✓ JUEGO CONECTADO (SALA ' + roomId + ')';
+            statusBox.style.borderColor = '#00ff88';
           })
-          .subscribe((status, error) => {
-            logPhone('Estado WebSocket: ' + status);
-            if (error) logPhone('Error canal: ' + JSON.stringify(error), true);
-            if (status !== 'SUBSCRIBED') return;
+          .subscribe((status) => {
+            log('Estado Canal: ' + status);
 
-            logPhone('Enviando PING a la PC...');
-            setInterval(() => {
-              channel.send({ type: 'broadcast', event: 'MOBILE_PING', payload: { room: roomId } });
-            }, 600);
+            if (status === 'SUBSCRIBED') {
+              statusBox.innerText = 'BUSCANDO JUEGO EN SALA ' + roomId + '...';
+              log('Enviando PING a la PC cada 800 ms.');
+
+              setInterval(() => {
+                channel.send({
+                  type: 'broadcast',
+                  event: 'MOBILE_PING',
+                  payload: { room: roomId }
+                });
+              }, 800);
+            }
           });
 
-        window.sendControl = function (action, state) {
-          logPhone(`Entrada: ${action} = ${state}`);
+        function sendCmd(action, state) {
+          log('Entrada: ' + action + ' = ' + state);
           channel.send({
             type: 'broadcast',
             event: 'GAME_INPUT',
             payload: { action, state }
           });
+        }
+
+        window.sendControl = sendCmd;
+
+        const bindBtn = (id, action) => {
+          const element = document.getElementById(id);
+          if (!element) return;
+
+          const start = (event) => { event.preventDefault(); sendCmd(action, true); };
+          const end = (event) => { event.preventDefault(); sendCmd(action, false); };
+
+          element.addEventListener('touchstart', start, { passive: false });
+          element.addEventListener('touchend', end, { passive: false });
+          element.addEventListener('touchcancel', end, { passive: false });
+          element.addEventListener('mousedown', start);
+          element.addEventListener('mouseup', end);
+          element.addEventListener('mouseleave', end);
         };
+
+        bindBtn('btn-left', 'left');
+        bindBtn('btn-right', 'right');
+        bindBtn('btn-shoot', 'shoot');
       } catch (error) {
-        logPhone('Excepción Supabase: ' + error.message, true);
+        log('Excepción Supabase: ' + error.message, true);
       }
     }
-
-    function bindControl(id, action) {
-      const button = document.getElementById(id);
-      const press = (event) => {
-        event.preventDefault();
-        button.classList.add('active');
-        window.sendControl(action, true);
-      };
-      const release = (event) => {
-        event.preventDefault();
-        button.classList.remove('active');
-        window.sendControl(action, false);
-      };
-      button.addEventListener('touchstart', press, { passive: false });
-      button.addEventListener('touchend', release, { passive: false });
-      button.addEventListener('touchcancel', release, { passive: false });
-      button.addEventListener('mousedown', press);
-      button.addEventListener('mouseup', release);
-      button.addEventListener('mouseleave', release);
-    }
-
-    bindControl('left', 'left');
-    bindControl('right', 'right');
-    bindControl('shoot', 'shoot');
   </script>
 </body>
 </html>
