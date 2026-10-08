@@ -63,16 +63,17 @@
       log('ERROR: Librería Supabase no disponible.', true);
       statusBox.innerText = 'ERROR CDN SUPABASE';
     } else {
-      const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co';
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI';
+      const SUPABASE_URL = 'https://yidmwwckebagxjpidxma.supabase.co'.trim();
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpZG13d2NrZWJhZ3hqcGlkeG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNDUxOTgsImV4cCI6MjEwNTYyMTE5OH0.i6ZuT2JvZ9xe1IJV8VJuCf9LkMYVr3Zm2-u2DzzLUsI'.trim();
 
       try {
-        const sp = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const sp = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: { persistSession: false }
+        });
         log('Cliente Supabase creado.');
 
-        const channel = sp.channel('room_' + roomId, {
-          config: { broadcast: { ack: false, self: true } }
-        });
+        const channel = sp.channel('room_' + roomId);
+        let pingTimer;
 
         channel
           .on('broadcast', { event: 'PC_PONG' }, () => {
@@ -80,14 +81,24 @@
             statusBox.innerText = '✓ JUEGO CONECTADO (SALA ' + roomId + ')';
             statusBox.style.borderColor = '#00ff88';
           })
-          .subscribe((status) => {
+          .subscribe((status, error) => {
             log('Estado Canal: ' + status);
+
+            if (error || status === 'CHANNEL_ERROR') {
+              const detail = error ? JSON.stringify(error) : 'Servidor rechazó el canal';
+              log('Detalle error: ' + detail, true);
+              statusBox.innerText = 'ERROR EN CANAL SUPABASE';
+              statusBox.style.borderColor = '#ff0055';
+              clearInterval(pingTimer);
+              return;
+            }
 
             if (status === 'SUBSCRIBED') {
               statusBox.innerText = 'BUSCANDO JUEGO EN SALA ' + roomId + '...';
               log('Enviando PING a la PC cada 800 ms.');
 
-              setInterval(() => {
+              clearInterval(pingTimer);
+              pingTimer = setInterval(() => {
                 channel.send({
                   type: 'broadcast',
                   event: 'MOBILE_PING',

@@ -135,9 +135,7 @@ class MenuScene extends Phaser.Scene {
     const roomId = window.GAME_ROOM_ID || (new URLSearchParams(window.location.search)).get('room') || '1234';
     console.log('Game.js escuchando en canal room_' + roomId);
     window.mobileInputs ??= { left: false, right: false, shoot: false };
-    const gameChannel = supabaseClient.channel('room_' + roomId, {
-      config: { broadcast: { ack: false, self: true } }
-    });
+    const gameChannel = supabaseClient.channel('room_' + roomId);
     this.channel = gameChannel;
 
     gameChannel
@@ -282,9 +280,7 @@ class MainScene extends Phaser.Scene {
     connectMobileController() {
         if (typeof supabaseClient === 'undefined') return;
 
-        const gameChannel = supabaseClient.channel('room_' + this.roomId, {
-            config: { broadcast: { ack: false, self: true } }
-        });
+        const gameChannel = supabaseClient.channel('room_' + this.roomId);
         this.channel = gameChannel;
 
         gameChannel
